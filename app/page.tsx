@@ -10,39 +10,27 @@ export default function Home() {
   const [ballSpeedY, setBallSpeedY] = useState(3)
   const [computerPaddleY, setComputerPaddleY] = useState(250)
   const [score, setScore] = useState({ player: 0, computer: 0 })
-  const [keysPressed, setKeysPressed] = useState<{ [key: string]: boolean }>({})
   const paddleWidth = 10
   const paddleHeight = 100
   const ballSize = 10
-  const paddleSpeed = 8
+  // Mouse movement handler
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      setKeysPressed(keys => ({ ...keys, [e.key]: true }))
+    const handleMouseMove = (e: MouseEvent) => {
+      const canvas = canvasRef.current
+      if (!canvas) return
+      // Get canvas position
+      const rect = canvas.getBoundingClientRect()
+      // Calculate relative mouse position
+      const mouseY = e.clientY - rect.top
+      // Set paddle position while keeping it within canvas bounds
+      setPaddleY(prev => {
+        const newPosition = mouseY - paddleHeight / 2
+        return Math.max(0, Math.min(600 - paddleHeight, newPosition))
+      })
     }
-    const handleKeyUp = (e: KeyboardEvent) => {
-      setKeysPressed(keys => ({ ...keys, [e.key]: false }))
-    }
-    window.addEventListener('keydown', handleKeyDown)
-    window.addEventListener('keyup', handleKeyUp)
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown)
-      window.removeEventListener('keyup', handleKeyUp)
-    }
+    window.addEventListener('mousemove', handleMouseMove)
+    return () => window.removeEventListener('mousemove', handleMouseMove)
   }, [])
-  // Smooth paddle movement
-  useEffect(() => {
-    const movePaddle = () => {
-      if (keysPressed['ArrowUp']) {
-        setPaddleY(prev => Math.max(prev - paddleSpeed, 0))
-      }
-      if (keysPressed['ArrowDown']) {
-        setPaddleY(prev => Math.min(prev + paddleSpeed, 500))
-      }
-      requestAnimationFrame(movePaddle)
-    }
-    const animationId = requestAnimationFrame(movePaddle)
-    return () => cancelAnimationFrame(animationId)
-  }, [keysPressed])
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
@@ -129,12 +117,13 @@ export default function Home() {
     <main className="flex min-h-screen flex-col items-center justify-center p-24 bg-gradient-to-b from-zinc-900 to-black">
       <Card className="p-4">
         <h1 className="text-2xl font-bold text-center mb-4">Pong Game</h1>
-        <p className="text-center mb-4">Use ↑ and ↓ arrow keys to move your paddle</p>
+        <p className="text-center mb-4">Move your mouse up and down to control the paddle</p>
         <canvas
           ref={canvasRef}
           width={800}
           height={600}
           className="border border-gray-600"
+          style={{ cursor: 'none' }} // Hide cursor over canvas
         />
       </Card>
     </main>
