@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Card } from '@/components/ui/card'
 export default function Home() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const audioContextRef = useRef<AudioContext | null>(null)
   const [paddleY, setPaddleY] = useState(250)
   const [ballX, setBallX] = useState(400)
   const [ballY, setBallY] = useState(300)
@@ -13,6 +14,33 @@ export default function Home() {
   const paddleWidth = 12
   const paddleHeight = 80
   const ballSize = 8
+  // Initialize Audio Context
+  useEffect(() => {
+    audioContextRef.current = new AudioContext()
+    return () => {
+      if (audioContextRef.current) {
+        audioContextRef.current.close()
+      }
+    }
+  }, [])
+  // Sound effect function
+  const playPaddleHitSound = (pitch: number = 1) => {
+    if (!audioContextRef.current) return
+    const oscillator = audioContextRef.current.createOscillator()
+    const gainNode = audioContextRef.current.createGain()
+    // Configure oscillator
+    oscillator.type = 'square'
+    oscillator.frequency.setValueAtTime(200 * pitch, audioContextRef.current.currentTime)
+        // Configure gain (volume envelope)
+    gainNode.gain.setValueAtTime(0.5, audioContextRef.current.currentTime)
+    gainNode.gain.exponentialRampToValueAtTime(0.01, audioContextRef.current.currentTime + 0.1)
+    // Connect nodes
+    oscillator.connect(gainNode)
+    gainNode.connect(audioContextRef.current.destination)
+    // Play sound
+    oscillator.start()
+    oscillator.stop(audioContextRef.current.currentTime + 0.1)
+  }
   // Mouse movement handler
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
@@ -95,6 +123,8 @@ export default function Home() {
         const bounceAngle = normalizedIntersectY * 0.75
         setBallSpeedX(prev => Math.abs(prev) + 0.5)
         setBallSpeedY(prev => -7 * bounceAngle)
+        // Play sound with pitch based on hit position
+        playPaddleHitSound(1 + normalizedIntersectY)
       }
       if (
         ballX >= 730 && 
@@ -106,6 +136,8 @@ export default function Home() {
         const bounceAngle = normalizedIntersectY * 0.75
         setBallSpeedX(prev => -(Math.abs(prev) + 0.5))
         setBallSpeedY(prev => -7 * bounceAngle)
+        // Play sound with different pitch for computer paddle
+        playPaddleHitSound(0.8 + normalizedIntersectY)
       }
       // Computer AI
       const computerSpeed = 6
@@ -152,6 +184,12 @@ export default function Home() {
             style={{ 
               cursor: 'none',
               boxShadow: '0 0 20px rgba(0, 255, 0, 0.2)',
+            }}
+            onClick={() => {
+              // Start audio context on first click (browser requirement)
+              if (audioContextRef.current?.state === 'suspended') {
+                audioContextRef.current.resume()
+              }
             }}
           />
           <div className="absolute inset-0 pointer-events-none" style={{
