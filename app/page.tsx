@@ -6,25 +6,43 @@ export default function Home() {
   const [paddleY, setPaddleY] = useState(250)
   const [ballX, setBallX] = useState(400)
   const [ballY, setBallY] = useState(300)
-  const [ballSpeedX, setBallSpeedX] = useState(-5)
+  const [ballSpeedX, setBallSpeedX] = useState(-7)
   const [ballSpeedY, setBallSpeedY] = useState(3)
   const [computerPaddleY, setComputerPaddleY] = useState(250)
   const [score, setScore] = useState({ player: 0, computer: 0 })
+  const [keysPressed, setKeysPressed] = useState<{ [key: string]: boolean }>({})
   const paddleWidth = 10
   const paddleHeight = 100
   const ballSize = 10
+  const paddleSpeed = 8
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'ArrowUp' && paddleY > 0) {
-        setPaddleY(prev => Math.max(prev - 20, 0))
-      }
-      if (e.key === 'ArrowDown' && paddleY < 500) {
-        setPaddleY(prev => Math.min(prev + 20, 500))
-      }
+      setKeysPressed(keys => ({ ...keys, [e.key]: true }))
+    }
+    const handleKeyUp = (e: KeyboardEvent) => {
+      setKeysPressed(keys => ({ ...keys, [e.key]: false }))
     }
     window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [paddleY])
+    window.addEventListener('keyup', handleKeyUp)
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown)
+      window.removeEventListener('keyup', handleKeyUp)
+    }
+  }, [])
+  // Smooth paddle movement
+  useEffect(() => {
+    const movePaddle = () => {
+      if (keysPressed['ArrowUp']) {
+        setPaddleY(prev => Math.max(prev - paddleSpeed, 0))
+      }
+      if (keysPressed['ArrowDown']) {
+        setPaddleY(prev => Math.min(prev + paddleSpeed, 500))
+      }
+      requestAnimationFrame(movePaddle)
+    }
+    const animationId = requestAnimationFrame(movePaddle)
+    return () => cancelAnimationFrame(animationId)
+  }, [keysPressed])
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
@@ -57,35 +75,52 @@ export default function Home() {
         ballY >= paddleY && 
         ballY <= paddleY + paddleHeight
       ) {
-        setBallSpeedX(prev => -prev)
+        // Calculate angle based on where ball hits the paddle
+        const relativeIntersectY = (paddleY + (paddleHeight / 2)) - ballY
+        const normalizedIntersectY = relativeIntersectY / (paddleHeight / 2)
+        const bounceAngle = normalizedIntersectY * 0.75
+                setBallSpeedX(prev => Math.abs(prev) + 0.5) // Increase speed slightly
+        setBallSpeedY(prev => -7 * bounceAngle) // Angle based on hit position
       }
       if (
         ballX >= 730 && 
         ballY >= computerPaddleY && 
         ballY <= computerPaddleY + paddleHeight
       ) {
-        setBallSpeedX(prev => -prev)
+        // Similar angle calculation for computer paddle
+        const relativeIntersectY = (computerPaddleY + (paddleHeight / 2)) - ballY
+        const normalizedIntersectY = relativeIntersectY / (paddleHeight / 2)
+        const bounceAngle = normalizedIntersectY * 0.75
+                setBallSpeedX(prev => -(Math.abs(prev) + 0.5))
+        setBallSpeedY(prev => -7 * bounceAngle)
       }
-      // Computer paddle movement
-      setComputerPaddleY(prev => {
-        if (ballY > prev + paddleHeight / 2) {
-          return Math.min(prev + 5, 500)
+      // Improved computer AI
+      const computerSpeed = 6
+      const paddleCenter = computerPaddleY + paddleHeight / 2
+      const ballPrediction = ballY + (ballSpeedY * (740 - ballX) / ballSpeedX)
+            setComputerPaddleY(prev => {
+        if (paddleCenter < ballPrediction - 10) {
+          return Math.min(prev + computerSpeed, 500)
         }
-        if (ballY < prev + paddleHeight / 2) {
-          return Math.max(prev - 5, 0)
+        if (paddleCenter > ballPrediction + 10) {
+          return Math.max(prev - computerSpeed, 0)
         }
         return prev
       })
-      // Score points
+      // Score points and reset ball
       if (ballX <= 0) {
         setScore(prev => ({ ...prev, computer: prev.computer + 1 }))
         setBallX(400)
         setBallY(300)
+        setBallSpeedX(-7)
+        setBallSpeedY(3)
       }
       if (ballX >= 800) {
         setScore(prev => ({ ...prev, player: prev.player + 1 }))
         setBallX(400)
         setBallY(300)
+        setBallSpeedX(7)
+        setBallSpeedY(3)
       }
     }, 1000 / 60)
     return () => clearInterval(gameLoop)
